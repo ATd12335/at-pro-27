@@ -3,3 +3,5 @@ folium
 streamlit-folium
 pyproj
 fpdf
+matplotlib
+shapely
