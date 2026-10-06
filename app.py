@@ -40,7 +40,7 @@ st.markdown("""
         transform: scale(0.95);
     }
     
-    /* Bouton d'effacement spécifique (le 2ème bouton) */
+    /* Bouton d'effacement spécifique */
     div:nth-child(2) > div.stButton > button:first-child {
         background: linear-gradient(180deg, #ff4444 0%, #cc0000 100%);
         box-shadow: 0px 4px 10px rgba(204, 0, 0, 0.3);
@@ -50,14 +50,21 @@ st.markdown("""
     .stTextInput>div>div>input {
         border-radius: 10px;
         border: 1px solid #ccc;
-        font-size: 16px; /* 16px empêche le zoom auto sur Safari iOS */
+        font-size: 16px;
         padding: 10px;
     }
     
-    /* Style pour l'expander de la base de données */
     .streamlit-expanderHeader {
         font-weight: bold !important;
         color: #003366 !important;
+    }
+    
+    /* CORRECTION ULTIME DE LA TÂCHE LEAFLET */
+    .custom-label-container {
+        background: transparent !important;
+        border: none !important;
+        width: auto !important;
+        height: auto !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -218,7 +225,8 @@ def parser_fichiers_zip_cached(zip_bytes):
             s_calc = parse_surface(row[idx_surf_calc]) if idx_surf_calc != -1 and len(row) > idx_surf_calc else 0.0
             surf_num = s_adop if s_adop > 0 else s_calc
             
-            surf_texte = "{:,.2f}".format(surf_num).replace(',', ' ') if surf_num > 0 else "N/A"
+            # Utilisation de \u00A0 (espace insécable) pour forcer le texte à rester sur une seule ligne
+            surf_texte = "{:,.2f}".format(surf_num).replace(',', '\u00A0') if surf_num > 0 else "N/A"
             
             for tf_name in tfs_potentiels:
                 if tf_name and tf_name != "0":
@@ -257,11 +265,10 @@ def generer_kml(tf_nom, data):
     return kml.encode('utf-8')
 
 # ==========================================
-# INTERFACE PRINCIPALE (Plus de sidebar)
+# INTERFACE PRINCIPALE
 # ==========================================
 st.markdown("<h3 style='text-align: center; color: #003366; margin-top: 0;'>AT PRO 27</h3>", unsafe_allow_html=True)
 
-# 1. Menu d'importation (Caché par défaut si la base est déjà chargée)
 afficher_menu = (len(st.session_state.donnees_tf) == 0)
 with st.expander("📁 Base de données (Import ZIP)", expanded=afficher_menu):
     zip_upload = st.file_uploader("", type=['zip'], label_visibility="collapsed")
@@ -270,7 +277,6 @@ with st.expander("📁 Base de données (Import ZIP)", expanded=afficher_menu):
             st.session_state.donnees_tf = parser_fichiers_zip_cached(zip_upload)
             st.success(f"✅ {len(st.session_state.donnees_tf)} Titres chargés avec succès !")
 
-# 2. Barre de Recherche et Boutons (Toujours visible sur mobile)
 tf_input = st.text_input("Recherche Foncier", placeholder="N° du Titre (Ex: 12505/C)", label_visibility="collapsed")
 
 col_btn1, col_btn2 = st.columns(2)
@@ -287,7 +293,6 @@ with col_btn2:
         st.session_state.recherche_actuelle = None
         st.rerun()
 
-# 3. Export KML (Apparaît seulement si on a trouvé un TF)
 if st.session_state.recherche_actuelle:
     tf = st.session_state.recherche_actuelle
     data = st.session_state.donnees_tf[tf]
@@ -356,36 +361,34 @@ if st.session_state.recherche_actuelle:
             c_lat = sum(pt[0] for pt in chemin_latlon) / len(chemin_latlon)
             c_lon = sum(pt[1] for pt in chemin_latlon) / len(chemin_latlon)
 
-            # ÉTIQUETTE 2-EN-1 : TF en haut (Gros), Superficie en bas (Petit), centré.
-            # Fond sombre semi-transparent pour ne pas gâcher la vue satellite.
+            # ETIQUETTE PARFAITE : Utilisation de width: max-content et white-space: nowrap
             folium.Marker(
                 location=[c_lat, c_lon],
                 icon=folium.DivIcon(
-                    class_name="dummy", 
-                    icon_size=(0, 0),   
-                    icon_anchor=(0, 0),
+                    class_name="custom-label-container",
                     html=f"""
                     <div style="
-                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                        background-color: rgba(20, 30, 40, 0.75); 
+                        background-color: rgba(15, 23, 42, 0.85); 
                         border: 1px solid rgba(255, 255, 255, 0.3); 
                         border-radius: 8px; 
-                        padding: 6px 12px; 
+                        padding: 6px 14px; 
                         text-align: center; 
                         transform: translate(-50%, -50%); 
-                        box-shadow: 0px 4px 10px rgba(0,0,0,0.5);
+                        box-shadow: 0px 4px 15px rgba(0,0,0,0.4);
                         backdrop-filter: blur(4px);
                         -webkit-backdrop-filter: blur(4px);
                         pointer-events: none;
+                        white-space: nowrap; 
+                        width: max-content; 
+                        display: block;
                     ">
-                        <div style="font-size: 15px; color: #ffffff; font-weight: 800; line-height: 1.2; margin-bottom: 2px;">{tf}</div>
-                        <div style="font-size: 11px; color: #FFEA00; font-weight: 600; line-height: 1.2;">{surf} m²</div>
+                        <div style="font-family: -apple-system, sans-serif; font-size: 16px; color: #ffffff; font-weight: 800; line-height: 1.1; margin-bottom: 3px;">{tf}</div>
+                        <div style="font-family: -apple-system, sans-serif; font-size: 13px; color: #FFEA00; font-weight: 600; line-height: 1.1;">{surf}\u00A0m²</div>
                     </div>
                     """
                 )
             ).add_to(m)
 
-# Hauteur 600px pour laisser de la place aux boutons de recherche au-dessus
 st_data = st_folium(m, use_container_width=True, height=600, returned_objects=["last_clicked"])
 
 # ==========================================
