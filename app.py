@@ -1,6 +1,5 @@
 import streamlit as st
 import folium
-from folium.plugins import Fullscreen
 from streamlit_folium import st_folium
 import csv
 import zipfile
@@ -21,9 +20,16 @@ st.markdown("""
     
     /* Supprimer les marges pour maximiser l'espace */
     .block-container {
-        padding: 1rem 0.5rem 0rem 0.5rem !important;
+        padding: 0.5rem 0.5rem 0rem 0.5rem !important;
         margin: 0 !important;
         max-width: 100% !important;
+    }
+    
+    /* ASTUCE iOS : Forcer la carte à prendre tout l'écran verticalement */
+    iframe[title="streamlit_folium.st_folium"] {
+        height: 78vh !important; /* 78% de la hauteur de l'écran du téléphone */
+        border-radius: 12px;
+        box-shadow: 0px 4px 15px rgba(0,0,0,0.2);
     }
     
     /* Bouton principal (Chercher) */
@@ -59,7 +65,7 @@ st.markdown("""
         color: #003366 !important;
     }
     
-    /* CORRECTION ULTIME DE LA TÂCHE LEAFLET */
+    /* Correction de l'étiquette Leaflet */
     .custom-label-container {
         background: transparent !important;
         border: none !important;
@@ -225,7 +231,6 @@ def parser_fichiers_zip_cached(zip_bytes):
             s_calc = parse_surface(row[idx_surf_calc]) if idx_surf_calc != -1 and len(row) > idx_surf_calc else 0.0
             surf_num = s_adop if s_adop > 0 else s_calc
             
-            # Utilisation de \u00A0 (espace insécable) pour forcer le texte à rester sur une seule ligne
             surf_texte = "{:,.2f}".format(surf_num).replace(',', '\u00A0') if surf_num > 0 else "N/A"
             
             for tf_name in tfs_potentiels:
@@ -323,8 +328,8 @@ if st.session_state.recherche_actuelle:
             lon_center = lon_moy / nb_pts
             zoom_start = 19 
 
+# Le bouton Fullscreen a été retiré intentionnellement
 m = folium.Map(location=[lat_center, lon_center], zoom_start=zoom_start, control_scale=False, max_zoom=22, zoom_control=False)
-Fullscreen(position='topright').add_to(m)
 
 folium.TileLayer(
     tiles='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2',
@@ -361,7 +366,6 @@ if st.session_state.recherche_actuelle:
             c_lat = sum(pt[0] for pt in chemin_latlon) / len(chemin_latlon)
             c_lon = sum(pt[1] for pt in chemin_latlon) / len(chemin_latlon)
 
-            # ETIQUETTE PARFAITE : Utilisation de width: max-content et white-space: nowrap
             folium.Marker(
                 location=[c_lat, c_lon],
                 icon=folium.DivIcon(
