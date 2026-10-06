@@ -8,31 +8,53 @@ from pyproj import Transformer
 from io import StringIO
 
 # ==========================================
-# CONFIGURATION DE LA PAGE & CSS (Optimisé Mobile)
+# CONFIGURATION DE LA PAGE & CSS (Optimisé iOS)
 # ==========================================
-st.set_page_config(page_title="AT PRO 27 - Web", page_icon="🌍", layout="wide")
+st.set_page_config(page_title="AT PRO 27", page_icon="🌍", layout="wide", initial_sidebar_state="expanded")
 
-# Injection CSS pour améliorer l'UI sur mobile (iPhone)
+# Injection CSS puissante pour un look "App Native" et un faux plein-écran fluide
 st.markdown("""
 <style>
-    /* Réduire l'espace blanc en haut de la page sur mobile */
+    /* Masquer les éléments inutiles de Streamlit */
+    #MainMenu {visibility: hidden;}
+    header {visibility: hidden;}
+    footer {visibility: hidden;}
+    
+    /* Supprimer les marges pour maximiser l'espace de la carte sur mobile */
     .block-container {
-        padding-top: 1rem !important;
-        padding-bottom: 1rem !important;
+        padding: 0rem !important;
+        margin: 0 !important;
         max-width: 100% !important;
     }
-    /* Améliorer l'esthétique des boutons */
-    .stButton>button {
-        border-radius: 8px;
+    
+    /* Style iOS pour les boutons */
+    div.stButton > button:first-child {
+        background: linear-gradient(180deg, #0055ff 0%, #0033aa 100%);
+        color: white;
+        border-radius: 12px;
+        border: none;
+        padding: 10px 20px;
         font-weight: 600;
-        transition: all 0.3s;
+        box-shadow: 0px 4px 10px rgba(0, 51, 170, 0.3);
+        transition: all 0.2s ease-in-out;
     }
-    .stButton>button:active {
-        transform: scale(0.97);
+    div.stButton > button:first-child:active {
+        transform: scale(0.95);
+        box-shadow: 0px 2px 5px rgba(0, 51, 170, 0.2);
     }
-    /* Styliser les inputs */
+    
+    /* Bouton d'effacement spécifique */
+    div:nth-child(2) > div.stButton > button:first-child {
+        background: linear-gradient(180deg, #ff4444 0%, #cc0000 100%);
+        box-shadow: 0px 4px 10px rgba(204, 0, 0, 0.3);
+    }
+
+    /* Arrondir les champs de texte */
     .stTextInput>div>div>input {
-        border-radius: 8px;
+        border-radius: 10px;
+        border: 1px solid #ddd;
+        padding: 12px;
+        font-size: 16px; /* Empêche le zoom auto sur Safari iOS */
     }
 </style>
 """, unsafe_allow_html=True)
@@ -44,13 +66,14 @@ if "authenticated" not in st.session_state:
     st.session_state.authenticated = False
 
 if not st.session_state.authenticated:
-    st.markdown("<h2 style='text-align: center; color: #003366; margin-bottom: 0;'>AT PRO 27 - Mobile</h2>", unsafe_allow_html=True)
+    st.markdown("<div style='padding: 2rem;'>", unsafe_allow_html=True)
+    st.markdown("<h2 style='text-align: center; color: #003366; margin-bottom: 0; font-family: -apple-system, sans-serif;'>AT PRO 27</h2>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; font-size: 14px; color: #555;'>Système d'Information Géographique Foncier</p>", unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 10, 1])
     with col2:
-        st.write("") # Espace
-        pwd = st.text_input("🔑 Entrez le mot de passe", type="password")
+        st.write("") 
+        pwd = st.text_input("🔑 Mot de passe", type="password", placeholder="Saisir le mot de passe...")
         if st.button("DÉVERROUILLER", use_container_width=True):
             if pwd == "209287":
                 st.session_state.authenticated = True
@@ -58,10 +81,11 @@ if not st.session_state.authenticated:
             else:
                 st.error("Accès Refusé.")
         st.markdown("<p style='text-align: center; color: gray; font-size: 11px; margin-top: 50px;'>© 2026 TANTAWI ADIL<br>Propriété Intellectuelle</p>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
     st.stop()
 
 # ==========================================
-# FONCTIONS SIG MATHÉMATIQUES (Intactes)
+# FONCTIONS SIG MATHÉMATIQUES
 # ==========================================
 def nettoyer_tf(tf_str):
     tf_str = tf_str.strip().strip('"').upper()
@@ -101,13 +125,14 @@ if "recherche_actuelle" not in st.session_state:
     st.session_state.recherche_actuelle = None
 
 # ==========================================
-# PARSER ZIP (Intact)
+# PARSER ZIP (Optimisé)
 # ==========================================
-def parser_fichiers_zip(zip_file):
+@st.cache_data(show_spinner=False)
+def parser_fichiers_zip_cached(zip_bytes):
     mif_content = None
     mid_content = None
     
-    with zipfile.ZipFile(zip_file, 'r') as z:
+    with zipfile.ZipFile(zip_bytes, 'r') as z:
         for filename in z.namelist():
             if filename.lower().endswith('.mif'):
                 mif_content = z.read(filename).decode('windows-1252', errors='ignore')
@@ -115,7 +140,6 @@ def parser_fichiers_zip(zip_file):
                 mid_content = z.read(filename).decode('windows-1252', errors='ignore')
 
     if not mif_content or not mid_content:
-        st.error("Le ZIP doit contenir un .MIF et un .MID")
         return {}
 
     geometries = []
@@ -198,6 +222,8 @@ def parser_fichiers_zip(zip_file):
             s_adop = parse_surface(row[idx_surf_adop]) if idx_surf_adop != -1 and len(row) > idx_surf_adop else 0.0
             s_calc = parse_surface(row[idx_surf_calc]) if idx_surf_calc != -1 and len(row) > idx_surf_calc else 0.0
             surf_num = s_adop if s_adop > 0 else s_calc
+            
+            # Formatage avec espace séparateur des milliers
             surf_texte = "{:,.2f}".format(surf_num).replace(',', ' ') if surf_num > 0 else "Non précisée"
             
             for tf_name in tfs_potentiels:
@@ -239,51 +265,50 @@ def generer_kml(tf_nom, data):
     return kml.encode('utf-8')
 
 # ==========================================
-# INTERFACE UTILISATEUR (UI LATÉRALE)
+# INTERFACE LATÉRALE (SIDEBAR)
 # ==========================================
-st.sidebar.markdown("<h3 style='text-align: center; color: #003366;'>AT PRO 27</h3>", unsafe_allow_html=True)
+st.sidebar.markdown("<h3 style='text-align: center; color: #003366; font-family: -apple-system, sans-serif;'>AT PRO 27</h3>", unsafe_allow_html=True)
 st.sidebar.markdown("---")
 
-st.sidebar.markdown("**1. Base de données**")
-zip_upload = st.sidebar.file_uploader("Importer le ZIP (MIF & MID)", type=['zip'], label_visibility="collapsed")
+zip_upload = st.sidebar.file_uploader("📂 Importer ZIP (MIF & MID)", type=['zip'])
 
 if zip_upload:
-    if st.sidebar.button("📂 Traiter le fichier", use_container_width=True):
-        with st.spinner("Analyse en cours..."):
-            st.session_state.donnees_tf = parser_fichiers_zip(zip_upload)
-            st.sidebar.success(f"{len(st.session_state.donnees_tf)} Titres chargés !")
+    with st.spinner("Analyse en cours..."):
+        # Utilisation du cache pour éviter de recharger le fichier ZIP à chaque interaction tactile
+        st.session_state.donnees_tf = parser_fichiers_zip_cached(zip_upload)
+        st.sidebar.success(f"✅ {len(st.session_state.donnees_tf)} Titres chargés")
 
 st.sidebar.markdown("---")
-st.sidebar.markdown("**2. Recherche Foncier**")
-tf_input = st.sidebar.text_input("N° du Titre (Ex: 12505/C)", placeholder="Saisir le TF...")
+st.sidebar.markdown("<p style='font-weight: 600; color: #333; margin-bottom: 5px;'>🔍 Recherche Foncier</p>", unsafe_allow_html=True)
+tf_input = st.sidebar.text_input("N° du Titre (Ex: 12505/C)", placeholder="Ex: 12505/C", label_visibility="collapsed")
 
 col_btn1, col_btn2 = st.sidebar.columns(2)
 with col_btn1:
-    if st.button("🔍 Chercher", use_container_width=True):
+    if st.button("Chercher", use_container_width=True):
         tf_propre = nettoyer_tf(tf_input)
         if tf_propre in st.session_state.donnees_tf:
             st.session_state.recherche_actuelle = tf_propre
         else:
-            st.error("Titre introuvable.")
+            st.sidebar.error("Introuvable.")
 
 with col_btn2:
-    if st.button("🗑️ Effacer", use_container_width=True):
+    if st.button("Effacer", use_container_width=True):
         st.session_state.recherche_actuelle = None
         st.rerun()
 
 if st.session_state.recherche_actuelle:
-    st.sidebar.markdown("---")
-    st.sidebar.markdown("**3. Exportation**")
     tf = st.session_state.recherche_actuelle
+    st.sidebar.markdown("---")
+    st.sidebar.markdown(f"<p style='color: #003366; font-weight: bold;'>📍 Actif : TF {tf}</p>", unsafe_allow_html=True)
     data = st.session_state.donnees_tf[tf]
     kml_bytes = generer_kml(tf, data)
     st.sidebar.download_button(label="🌍 Télécharger KML", data=kml_bytes, file_name=f"TF_{tf.replace('/', '_')}.kml", mime="application/vnd.google-earth.kml+xml", use_container_width=True)
 
 # ==========================================
-# AFFICHAGE DE LA CARTE (HD & PLEIN ÉCRAN)
+# MOTEUR CARTOGRAPHIQUE (FOLIUM HD)
 # ==========================================
 lat_center, lon_center = 33.59, -7.61
-zoom_start = 13
+zoom_start = 12
 
 if st.session_state.recherche_actuelle:
     tf = st.session_state.recherche_actuelle
@@ -301,21 +326,20 @@ if st.session_state.recherche_actuelle:
         if nb_pts > 0:
             lat_center = lat_moy / nb_pts
             lon_center = lon_moy / nb_pts
-            zoom_start = 19 # Zoom puissant pour la HD
+            zoom_start = 19 # Zoom rapproché
 
-# Augmentation du max_zoom à 22 pour profiter de la qualité HD
-m = folium.Map(location=[lat_center, lon_center], zoom_start=zoom_start, control_scale=True, max_zoom=22)
+# Création de la carte avec max_zoom élevé
+m = folium.Map(location=[lat_center, lon_center], zoom_start=zoom_start, control_scale=False, max_zoom=22, zoom_control=False)
 
-# Bouton Plein Écran (Idéal pour l'iPhone)
-Fullscreen(position='topright', title='Plein écran', title_cancel='Quitter le plein écran', force_separate_button=True).add_to(m)
+# Plein écran classique (pour Android / PC)
+Fullscreen(position='topright').add_to(m)
 
-# Fond Google Satellite en Haute Définition (Ajout de scale=2)
+# Couche Google Satellite Haute Définition
 folium.TileLayer(
     tiles='https://mt1.google.com/vt/lyrs=y&x={x}&y={y}&z={z}&scale=2',
     attr='Google HD',
     name='Google Satellite HD',
     overlay=False,
-    control=True,
     max_zoom=22
 ).add_to(m)
 
@@ -325,9 +349,6 @@ if st.session_state.recherche_actuelle:
     polygones = data.get('polygones', [])
     surfaces = data.get('surfaces_list', [])
     
-    # Affichage propre du TF recherché au-dessus de la carte
-    st.markdown(f"<h4 style='color: #003366; margin-bottom: 5px;'>📍 TF : {tf}</h4>", unsafe_allow_html=True)
-    
     for index, poly in enumerate(polygones):
         chemin_latlon = []
         for x, y in poly:
@@ -336,52 +357,54 @@ if st.session_state.recherche_actuelle:
         
         surf = surfaces[index] if index < len(surfaces) else 'Non précisée'
         
-        # Dessin du contour
+        # Le tracé du polygone (Couleur néon dynamique)
         folium.Polygon(
             locations=chemin_latlon,
-            color='#FFD700', # Jaune or plus élégant
+            color='#FFEA00', # Jaune très éclatant
             weight=4,
             fill=True,
-            fill_opacity=0.15,
-            fill_color='#FFD700',
-            tooltip=f"TF {tf}"
+            fill_opacity=0.1, # Très léger pour préserver l'image satellite
+            fill_color='#FFEA00'
         ).add_to(m)
 
         if chemin_latlon:
             c_lat = sum(pt[0] for pt in chemin_latlon) / len(chemin_latlon)
             c_lon = sum(pt[1] for pt in chemin_latlon) / len(chemin_latlon)
 
-            # Design amélioré de l'étiquette et suppression du carré par défaut (class_name="custom-label")
+            # ÉTIQUETTE CORRIGÉE : Plus de forme résiduelle grâce à icon_size=(0,0) et class_name "dummy"
             folium.Marker(
                 location=[c_lat, c_lon],
                 icon=folium.DivIcon(
-                    class_name="custom-label", # La solution miracle contre la petite forme Leaflet !
+                    class_name="dummy", # Détruit la classe par défaut de Leaflet
+                    icon_size=(0, 0),   # Alloue 0 pixel d'espace initial
+                    icon_anchor=(0, 0),
                     html=f"""
                     <div style="
-                        font-family: Arial, sans-serif;
+                        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
                         font-size: 13px; 
                         color: #ffffff; 
-                        font-weight: bold; 
-                        background-color: rgba(0, 51, 102, 0.85); 
-                        border: 2px solid #ffffff; 
-                        border-radius: 20px; 
-                        padding: 4px 10px; 
+                        font-weight: 700; 
+                        background-color: rgba(20, 30, 40, 0.85); 
+                        border: 1px solid rgba(255, 255, 255, 0.3); 
+                        border-radius: 8px; 
+                        padding: 6px 12px; 
                         text-align: center; 
                         white-space: nowrap; 
                         transform: translate(-50%, -50%); 
-                        box-shadow: 0px 4px 6px rgba(0,0,0,0.4);
-                        backdrop-filter: blur(2px);
+                        box-shadow: 0px 8px 15px rgba(0,0,0,0.5);
+                        backdrop-filter: blur(5px);
+                        -webkit-backdrop-filter: blur(5px);
                     ">
                     {surf} m²</div>
                     """
                 )
             ).add_to(m)
 
-# Rendu de la carte optimisé pour mobile (hauteur 650px pour bien remplir l'écran)
-st_data = st_folium(m, use_container_width=True, height=650, returned_objects=["last_clicked"])
+# Hauteur fixée à 850px pour simuler le plein écran direct sur le téléphone
+st_data = st_folium(m, use_container_width=True, height=850, returned_objects=["last_clicked"])
 
 # ==========================================
-# GESTION DU TACTILE / RECHERCHE INVERSÉE
+# RECHERCHE INVERSÉE (TAPER SUR LA CARTE)
 # ==========================================
 if st_data and st_data.get("last_clicked"):
     lat_c = st_data["last_clicked"]["lat"]
